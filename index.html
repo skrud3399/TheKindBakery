@@ -189,6 +189,14 @@ footer b{font-family:"Jua",sans-serif;font-weight:400}
 
 @media (prefers-reduced-motion:reduce){.oven-window svg,.card{animation:none}}
 #printArea{display:none}
+.edit-box{background:var(--paper);padding:18px 18px 4px;margin-top:16px;text-align:left}
+.edit-box[hidden],.actions[hidden]{display:none}
+.edit-title{font-family:"Jua",sans-serif;font-size:26px;margin:0 0 6px;text-align:center}
+.edit-box label{display:block;font-family:"Jua",sans-serif;font-size:20px;margin:12px 0 6px}
+.edit-box input{width:100%;border:2.5px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--chip);font-size:22px;color:var(--ink)}
+.edit-row{display:flex;align-items:center;gap:8px}
+.edit-row input{flex:1;min-width:0;font-family:"Jua",sans-serif;font-size:26px}
+.edit-row span{font-family:"Jua",sans-serif;font-size:26px}
 .ask-modal{z-index:40}
 .ask-box{text-align:center;width:min(440px,100%)}
 .ask-msg{font-family:"Jua",sans-serif;font-size:25px;line-height:1.45;margin:6px 0 0}
@@ -631,12 +639,21 @@ function renderShelf(){
 function openItem(id){
   const b=loadShelf().find(x=>x.id===id);if(!b)return;
   const m=document.createElement('div');m.className='modal';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-label',b.name);
-  m.innerHTML=`<div class="result">${cardHTML(b)}<div class="actions">
+  m.innerHTML=`<div class="result"><div data-a="card">${cardHTML(b)}</div><div class="actions" data-a="acts">
     <button class="btn sky" data-a="img">🖼️ 이미지로 저장</button>
     <button class="btn sky" data-a="print">🖨️ 프린트</button>
+    <button class="btn ghost" data-a="edit">✏️ 이름 고치기</button>
     <button class="btn ghost" data-a="hear">🔊 소리로 듣기</button>
     <button class="btn ghost" data-a="del">진열대에서 빼기</button>
     <button class="btn" data-a="close">닫기</button></div>
+    <div class="edit-box hand" data-a="editbox" hidden>
+      <p class="edit-title">✏️ 이름 고치기</p>
+      <label for="editName">빵 이름</label>
+      <div class="edit-row"><input id="editName" maxlength="12" autocomplete="off"><span>빵</span></div>
+      <label for="editMaker">👩‍🍳 제빵사 이름</label>
+      <input id="editMaker" maxlength="10" autocomplete="off" placeholder="이름을 써요">
+      <div class="actions"><button class="btn ghost" data-a="ecancel">취소</button><button class="btn sky" data-a="esave">저장하기</button></div>
+    </div>
     <p class="saved-note" data-a="note" aria-live="polite"></p></div>`;
   document.body.appendChild(m);
   speak(sentence(b));
@@ -650,6 +667,26 @@ function openItem(id){
   m.querySelector('[data-a="print"]').onclick=e=>printCard(b,e.currentTarget,noteEl);
   m.querySelector('[data-a="close"]').onclick=close;
   m.querySelector('[data-a="del"]').onclick=async()=>{if(await askConfirm(`${b.name}을 진열대에서 뺄까요?`,'빼기')){saveShelf(loadShelf().filter(x=>x.id!==id));close();render()}};
+  const acts=m.querySelector('[data-a="acts"]'),box=m.querySelector('[data-a="editbox"]');
+  const eName=m.querySelector('#editName'),eMaker=m.querySelector('#editMaker');
+  const closeEdit=()=>{box.hidden=true;acts.hidden=false;m.querySelector('[data-a="edit"]').focus()};
+  m.querySelector('[data-a="edit"]').onclick=()=>{
+    eName.value=b.name.replace(/\s*빵$/,'');eMaker.value=b.maker||'';
+    acts.hidden=true;box.hidden=false;noteEl.textContent='';eName.focus();
+  };
+  m.querySelector('[data-a="ecancel"]').onclick=closeEdit;
+  const saveEdit=()=>{
+    const n=withBread(eName.value);
+    if(!n){noteEl.textContent='빵 이름을 써 주세요.';eName.focus();return}
+    const list=loadShelf(),i=list.findIndex(x=>x.id===id);if(i<0)return;
+    list[i].name=n;list[i].maker=eMaker.value.trim();
+    if(!saveShelf(list)){noteEl.textContent='이 기기에서는 저장할 수 없어요.';return}
+    b.name=list[i].name;b.maker=list[i].maker;
+    m.querySelector('[data-a="card"]').innerHTML=cardHTML(b);m.setAttribute('aria-label',b.name);
+    render();closeEdit();noteEl.textContent='이름을 고쳤어요 ✏️';speak(b.name);
+  };
+  m.querySelector('[data-a="esave"]').onclick=saveEdit;
+  [eName,eMaker].forEach(inp=>inp.onkeydown=e=>{if(e.key==='Enter')saveEdit()});
   m.querySelector('[data-a="close"]').focus();
 }
 
